@@ -1,7 +1,9 @@
 from Bio import Entrez
 import xml.etree.ElementTree as ET
 
-
+refgenome=''
+search_id="GSE145919"
+print("Input GEOID is",search_id)
 def idselector(tree):
     ''' Returns top 1 id after searching'''
     x=0
@@ -16,10 +18,11 @@ def idselector(tree):
     return id
 
 Entrez.email = "bhavay18384@iiitd.ac.in"
-handle = Entrez.esearch(db="gds", term="GSE145919")
+handle = Entrez.esearch(db="gds", term=search_id)
 pp=handle.read()
 #print(pp)
 tree = ET.fromstring(pp)
+print("Selecting the following ID")
 id=idselector(tree)
 handle = Entrez.esummary(db="gds", id=id)
 pp=handle.read()
@@ -28,6 +31,8 @@ tree = ET.fromstring(pp)
 targetsra=''
 for item in tree.findall('DocSum'):
     for item2 in item.findall("Item"):
+        if item2.attrib['Name']=='taxon':
+            refgenome=item2.text
         if item2.attrib['Name']=='ExtRelations':
             for item3 in item2.findall("Item"):
                 if item3.attrib['Name']=='ExtRelation':
@@ -35,21 +40,19 @@ for item in tree.findall('DocSum'):
                         if item4.attrib['Name']=='TargetObject':
                             targetsra=item4.text
 
-print(targetsra) #SRA to  be searched again
+print("SRA in relation is ",targetsra) #SRA to  be searched again
 handle = Entrez.esearch(db="sra", term=targetsra)
 pp=handle.read()
 #print(pp)
 tree = ET.fromstring(pp)
+print("Selecting the following ID")
 id=idselector(tree)
 variable=Entrez.efetch(db="sra",id=id,rettype="full")
 #print(variable.read())
 
 #import os
 #os.system("pysradb metadata SRP250724")
-
-from pysradb import sraweb,download
+print("Organism is",refgenome)
+from pysradb import sraweb,download 
 db = sraweb.SRAweb()
-db.download('SRP098789',skip_confirmation=True)
-
-df = db.sra_download('SRP098789')
-print(df.head())
+db.download(targetsra,skip_confirmation=True)
