@@ -1,6 +1,8 @@
 from Bio import Entrez
 import xml.etree.ElementTree as ET
 import sys
+from pysradb import sraweb, download
+import os
 
 # This function have been moved up
 def idselector(tree):
@@ -16,6 +18,25 @@ def idselector(tree):
             x += 1
     return id
 
+def downloadRefGenome():
+    pass;
+
+def createIndex(filename:str):
+    os.system("hisat2-build "+filename);
+
+def startAlignment(indexLocation, firstName, secondName):
+    os.system("hisat2 -x "+indexLocation+" -m1 "+firstName+" -m2 "+secondName+" -S output.sam")
+
+def convertSamToBam(samFilename):
+    os.system("samtools view -S -b "+samFilename+" > output.bam")
+
+def sortBamFiles(filename):
+    os.system("samtools sort "+filename+" -o sample.sorted.bam")
+
+def createCountMatrix():
+    # http://genomespot.blogspot.com/2015/01/generate-rna-seq-count-matrix-with.html
+    pass
+
 if __name__ == '__main__':
     refgenome = ''
 
@@ -27,9 +48,6 @@ if __name__ == '__main__':
         search_id=sys.argv[1]
 
     print("Input GEOID is", search_id)
-
-
-
 
 
     Entrez.email = "bhavay18384@iiitd.ac.in"
@@ -55,6 +73,8 @@ if __name__ == '__main__':
                             if item4.attrib['Name'] == 'TargetObject':
                                 targetsra = item4.text
 
+
+    # Fetching Target SRA
     print("SRA in relation is ", targetsra)  # SRA to  be searched again
     handle = Entrez.esearch(db="sra", term=targetsra)
     pp = handle.read()
@@ -68,7 +88,36 @@ if __name__ == '__main__':
     # import os
     # os.system("pysradb metadata SRP250724")
     print("Organism is", refgenome)
-    from pysradb import sraweb, download
 
-    db = sraweb.SRAweb()
-    db.download(targetsra, skip_confirmation=True)
+    targetsra="app*"
+    # Downloading .SRA file
+    # db = sraweb.SRAweb()
+    # db.download(targetsra, skip_confirmation=True);
+    # SRR11550936
+    # Searching for Downloaded SRA File in File System
+    os.system("find . -name "+targetsra +"> downloadPath.txt")
+    downloadFileLocation = open("downloadPath.txt","r").readline();
+
+    # Creating fastq file from Downloaded SRA File
+    os.system("fastq-dump --split-3 "+downloadFileLocation)
+
+    # Quality Control
+    os.system("fastqc *fastq") # Can be Modified
+
+    # To Download Refernce Genome
+    filename = downloadRefGenome()
+
+    # Creating Index for Hisat2
+    createIndex(filename)
+
+    # Starting Alignment
+    startAlignment("indexName","firstName","secondName")
+
+    # Converting Sam to Bam
+    convertSamToBam("samFileName")
+
+    # Sort Bam Files
+    sortBamFiles("BAMFilename")
+
+    # Create Count Matrix (User Option)
+    createCountMatrix()
