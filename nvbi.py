@@ -139,6 +139,8 @@ if __name__ == '__main__':
     os.system("find . -name "+targetsra +"> downloadPath.txt")
     downloadFileLocation = open("downloadPath.txt","r").readline();
 
+    sraFileNames = ["Put List of All SRA File Names"]
+
     # Creating fastq file from Downloaded SRA File
     firstList,secondList = createFastqFiles(sraFileNames)
 
@@ -146,10 +148,10 @@ if __name__ == '__main__':
     os.system("fastqc *fastq") # Can be Modified
 
     # To Download Refernce Genome
-    filename = downloadRefGenome()
+    fnaName,gtfName = downloadRefGenome()
 
     # Creating Index for Hisat2
-    index_name = createIndex(filename)
+    index_name = createIndex(fnaName,gtfName)
 
     # Starting Alignment //Done
     listOfOutputFiles = startAlignment(index_name,firstList,secondList)
