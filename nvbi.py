@@ -3,6 +3,8 @@ import xml.etree.ElementTree as ET
 import sys
 from pysradb import sraweb, download
 import os
+import multiprocessing
+
 
 # This function have been moved up
 def idselector(tree):
@@ -21,17 +23,56 @@ def idselector(tree):
 def downloadRefGenome():
     pass;
 
-def createIndex(filename:str):
-    os.system("hisat2-build "+filename);
+def createFastqFiles(sraFileNames):
+    oneNames=[];secondNames=[]
+    for i in range(len(sraFileNames)):
+        command = "fastq-dump --split-3 {}".format(sraFileNames[i])
+        os.system(command)
+        if(os.path.exists(sraFileNames[i]+"_1.fastq")):
+            oneNames.append(sraFileNames[i]+"_1.fastq")
+            secondNames.append(sraFileNames[i]+"_2.fastq")
+        else:
+            oneNames.append(sraFileNames[i]+".fastq")
+    return oneNames,secondNames
 
-def startAlignment(indexLocation, firstName, secondName):
-    os.system("hisat2 -x "+indexLocation+" -m1 "+firstName+" -m2 "+secondName+" -S output.sam")
+def createIndex(refGenome:str,annotations:str):
+    command = "hisat-build -p {} {} {}".format(multiprocessing.cpu_count(),refGenome,annotations)
+    os.system(command)
+    return annotations
 
-def convertSamToBam(samFilename):
-    os.system("samtools view -S -b "+samFilename+" > output.bam")
+def startAlignment(indexLocation:str, firstFileNamesList:list, secondFilesNameList=[]):
+    outputFilenames = [];
+    if(len(secondFilesNameList)==0):
+        for i in range(len(firstFileNamesList)):
+            command = "hisat2 -x {} -p {} -U {} -S output_{}.sam".format(indexLocation, multiprocessing.cpu_count(), firstFileNamesList[i],i+1)
+            os.system(command)
+            outputName = "output_{}.sam".format(i+1);
+            outputFilenames.append(outputFilenames)
+    else:
+        for i in range(len(firstFileNamesList)):
+            command = "hisat2 -x {} -p {} -1 {} -2 {} -S output_{}.sam".format(indexLocation, multiprocessing.cpu_count(), firstFileNamesList[i], secondFilesNameList[i],i+1)
+            os.system(command)
+            outputName = "output_{}.sam".format(i + 1);
+            outputFilenames.append(outputFilenames)
+    return outputFilenames
 
-def sortBamFiles(filename):
-    os.system("samtools sort "+filename+" -o sample.sorted.bam")
+
+def convertSamToBam(samFilenames):
+    bamFileNames = []
+    for i in range(len(samFilenames)):
+        command = "samtools view -S -b {} > {}".format(samFilenames[i],samFilenames[i][0:-3]+"bam")
+        os.system(command)
+        bamFileNames.append(samFilenames[i][0:-3]+"bam")
+    return bamFileNames
+
+
+def sortBamFiles(BamfileNames: list):
+    sortedBamFileNames = []
+    for i in range(len(BamfileNames)):
+        command = "samtools sort {} -o {}".format(BamfileNames[i],BamfileNames[i][0:-3]+"sorted.bam")
+        os.system(command)
+        sortedBamFileNames.append(BamfileNames[i][0:-3]+"sorted.bam")
+    return sortedBamFileNames
 
 def createCountMatrix():
     # http://genomespot.blogspot.com/2015/01/generate-rna-seq-count-matrix-with.html
@@ -99,7 +140,7 @@ if __name__ == '__main__':
     downloadFileLocation = open("downloadPath.txt","r").readline();
 
     # Creating fastq file from Downloaded SRA File
-    os.system("fastq-dump --split-3 "+downloadFileLocation)
+    firstList,secondList = createFastqFiles(sraFileNames)
 
     # Quality Control
     os.system("fastqc *fastq") # Can be Modified
@@ -108,16 +149,16 @@ if __name__ == '__main__':
     filename = downloadRefGenome()
 
     # Creating Index for Hisat2
-    createIndex(filename)
+    index_name = createIndex(filename)
 
-    # Starting Alignment
-    startAlignment("indexName","firstName","secondName")
+    # Starting Alignment //Done
+    listOfOutputFiles = startAlignment(index_name,firstList,secondList)
 
-    # Converting Sam to Bam
-    convertSamToBam("samFileName")
+    # Converting Sam to Bam // Done
+    BamFileNames = convertSamToBam(listOfOutputFiles)
 
-    # Sort Bam Files
-    sortBamFiles("BAMFilename")
+    # Sort Bam Files // Done
+    sortedBamFileNames = sortBamFiles(BamFileNames)
 
     # Create Count Matrix (User Option)
     createCountMatrix()
