@@ -22,6 +22,55 @@ def idselector(tree):
             x += 1
     return id
 
+def getHTML(GEOID):
+    command = "(esearch -db gds --query {} | esummary) > sampleScraped.xml".format(GEOID)
+    os.system(command)
+    sampleScrapedFile = open("sampleScraped.xml",'r')
+    root = ET.parse(sampleScrapedFile)
+    SampleID = None
+    for id in root.iter("Accession"):
+        SampleID = id.text
+        break
+    command = "wget https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={} -O experimentSample.html".format(SampleID)
+    os.system(command)
+    sampleScrapedFile.close()
+    htmlFile = open("experimentSample.html",'r')
+    return htmlFile
+
+def findGenomeBuild(htmlFile):
+    genomeBuild = None
+    listContainingBuild = None
+    for line in htmlFile:
+        if "genome_build" in line.lower():
+            listContainingBuild = line.lower().split("<")
+            break
+    words=[]
+    if listContainingBuild == None:
+        return None
+    else:
+        for sentences in listContainingBuild:
+            if "genome_build" in sentences:
+                words = sentences.split(" ")
+
+    for i in range(len(words)):
+        if "genome_build" in words[i]:
+            genomeBuild = words[i + 1]
+    return genomeBuild
+
+def getLatestRefGenomeName(org_name:str):
+    command = "./datasets assembly_descriptors tax_name '{}' --refseq > orgRefSeqInfo.txt".format(org_name)
+    refSeqAccessionID = None
+    file = open("orgRefSeqInfo.txt", 'r')
+    textOfAccessionFile = []
+    for line in file:
+        textOfAccessionFile.extend(line.split('"'))
+
+    for words in range(len(textOfAccessionFile)):
+        if ("assembly_accession" in textOfAccessionFile[words]):
+            refSeqAccessionID = textOfAccessionFile[words + 2]
+            break
+    return refSeqAccessionID
+
 """
     Put GEOID->eSearch->  get GSM_ID from Here
     Put GSM_ID -> wget -> get HTML Page
@@ -35,8 +84,12 @@ def idselector(tree):
         esearch -db assembly --query build_name -> Refseq Accession ID 
         use wget to download Reference genome using Accession ID
 """
-def downloadRefGenome(GEOID):
-    pass;
+def downloadRefGenome(GEOID:str,OrganismName):
+    htmlFile = getHTML(GEOID)
+    genomeBuild = findGenomeBuild(htmlFile)
+    if(genomeBuild==None)
+        refGenomName = getLatestRefGenomeName(OrganismName)
+
 
 
 def createFastqFiles(sraFileNames):
