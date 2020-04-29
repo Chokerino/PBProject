@@ -5,6 +5,8 @@ from pysradb import sraweb, download
 import os
 import multiprocessing
 
+# esearch -db assembly -query "hg19" | esummary
+# wget
 
 # This function have been moved up
 def idselector(tree):
@@ -20,8 +22,22 @@ def idselector(tree):
             x += 1
     return id
 
-def downloadRefGenome():
+"""
+    Put GEOID->eSearch->  get GSM_ID from Here
+    Put GSM_ID -> wget -> get HTML Page
+    Scrape HTML_PAGE -> Genome_Build
+    If Genome_Build not Exist
+    do 
+        ./dataset with organism name -> Refseq Accession ID  (GCF_XXXX )
+        use wget to download Reference genome using Accession ID
+    else if Genom Build Exists
+    do
+        esearch -db assembly --query build_name -> Refseq Accession ID 
+        use wget to download Reference genome using Accession ID
+"""
+def downloadRefGenome(GEOID):
     pass;
+
 
 def createFastqFiles(sraFileNames):
     oneNames=[];secondNames=[]
@@ -34,6 +50,13 @@ def createFastqFiles(sraFileNames):
         else:
             oneNames.append(sraFileNames[i]+".fastq")
     return oneNames,secondNames
+
+def removerRnaContamination(firstName:list,secondName:list):
+    if(secondName==[]):
+        command = ""
+        # os.system()
+    else:
+
 
 def createIndex(refGenome:str,annotations:str):
     command = "hisat-build -p {} {} {}".format(multiprocessing.cpu_count(),refGenome,annotations)
@@ -55,6 +78,8 @@ def startAlignment(indexLocation:str, firstFileNamesList:list, secondFilesNameLi
             outputName = "output_{}.sam".format(i + 1);
             outputFilenames.append(outputFilenames)
     return outputFilenames
+
+
 
 
 def convertSamToBam(samFilenames):
@@ -143,6 +168,11 @@ if __name__ == '__main__':
 
     # Creating fastq file from Downloaded SRA File
     firstList,secondList = createFastqFiles(sraFileNames)
+
+    # Remove rRna Contamination
+    removerRnaContamination(firstList,secondList)
+
+    #
 
     # Quality Control
     os.system("fastqc *fastq") # Can be Modified
