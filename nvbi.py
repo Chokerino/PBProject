@@ -55,7 +55,7 @@ def findGenomeBuild(htmlFile):
     genomeBuild = None
     listContainingBuild = None
     for line in htmlFile:
-        if "genome_build" in line.lower():
+        if "genome_build" in line.lower() or "genome build" in line.lower():
             listContainingBuild = line.lower().split("<")
             break
     words = []
@@ -63,12 +63,13 @@ def findGenomeBuild(htmlFile):
         return None
     else:
         for sentences in listContainingBuild:
-            if "genome_build" in sentences:
+            if "genome_build" in sentences or "genome build" in sentences:
                 words = sentences.split(" ")
-
     for i in range(len(words)):
         if "genome_build" in words[i]:
             genomeBuild = words[i + 1]
+        if "genome" in words[i] and "build" in words[i+1]:
+            genomeBuild = words[i + 2]
     return genomeBuild
 
 """
