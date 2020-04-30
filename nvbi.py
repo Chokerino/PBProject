@@ -35,24 +35,29 @@ def createFastqFiles(sraFileNames):
             oneNames.append(sraFileNames[i]+".fastq")
     return oneNames,secondNames
 
+def preprocess(firstList, secondList):
+    if(len(secondList)!=0):
+        
+
+
 def createIndex(refGenome:str,annotations:str):
     command = "hisat-build -p {} {} {}".format(multiprocessing.cpu_count(),refGenome,annotations)
     os.system(command)
     return annotations
 
 def startAlignment(indexLocation:str, firstFileNamesList:list, secondFilesNameList=[]):
-    outputFilenames = [];
+    outputFilenames = []
     if(len(secondFilesNameList)==0):
         for i in range(len(firstFileNamesList)):
             command = "hisat2 -x {} -p {} -U {} -S output_{}.sam".format(indexLocation, multiprocessing.cpu_count(), firstFileNamesList[i],i+1)
             os.system(command)
-            outputName = "output_{}.sam".format(i+1);
+            outputName = "output_{}.sam".format(i+1)
             outputFilenames.append(outputFilenames)
     else:
         for i in range(len(firstFileNamesList)):
             command = "hisat2 -x {} -p {} -1 {} -2 {} -S output_{}.sam".format(indexLocation, multiprocessing.cpu_count(), firstFileNamesList[i], secondFilesNameList[i],i+1)
             os.system(command)
-            outputName = "output_{}.sam".format(i + 1);
+            outputName = "output_{}.sam".format(i + 1)
             outputFilenames.append(outputFilenames)
     return outputFilenames
 
@@ -149,6 +154,9 @@ if __name__ == '__main__':
 
     # To Download Refernce Genome
     fnaName,gtfName = downloadRefGenome()
+
+    # To Preprocess the data (rRNA contamination removal, trimming)
+    preprocess(firstList, secondList)
 
     # Creating Index for Hisat2
     index_name = createIndex(fnaName,gtfName)
