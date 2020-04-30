@@ -4,6 +4,8 @@ import sys
 from pysradb import sraweb, download
 import os
 import multiprocessing
+from Bio import SeqIO
+import re
 
 
 # esearch -db assembly -query "hg19" | esummary
@@ -11,38 +13,46 @@ import multiprocessing
 
 # This function have been moved up
 def idselector(tree):
-    ''' Returns top 1 id after searching'''
+    """ Returns top 1 id after searching"""
     x = 0
-    req_id = ''
+    req_id = ""
     for node in tree.iter("IdList"):
         for elem in node.iter():
-            if (x == 1):
+            if x == 1:
                 print(elem.tag, elem.text)  # 1st Result found
                 id = elem.text
                 break
             x += 1
     return id
 
+
 """
     given GEOID (GSE)
     This Function esearch it's corresponding GSM ID
     and then downloads it's html file and returns that
 """
+
+
 def getHTML(GEOID):
-    command = "(esearch -db gds --query {} | esummary) > sampleScraped.xml".format(GEOID)
+    command = "(esearch -db gds --query {} | esummary) > sampleScraped.xml".format(
+        GEOID
+    )
     os.system(command)
-    sampleScrapedFile = open("sampleScraped.xml", 'r')
+    sampleScrapedFile = open("sampleScraped.xml", "r")
     root = ET.parse(sampleScrapedFile)
     SampleID = None
     for id in root.iter("Accession"):
         SampleID = id.text
-        if (SampleID[0:3] == "GSM"):
+        if SampleID[0:3] == "GSM":
             break
-    command = "wget https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={} -O experimentSample.html".format(SampleID)
+    command = "wget https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={} -O experimentSample.html".format(
+        SampleID
+    )
     os.system(command)
     sampleScrapedFile.close()
-    htmlFile = open("experimentSample.html", 'r')
+    htmlFile = open("experimentSample.html", "r")
     return htmlFile
+
 
 """
     Still Experimental (Under Build)
@@ -50,6 +60,7 @@ def getHTML(GEOID):
     for genome_build and if it exists returns genome_build
     else None
 """
+
 
 def findGenomeBuild(htmlFile):
     genomeBuild = None
@@ -68,47 +79,61 @@ def findGenomeBuild(htmlFile):
     for i in range(len(words)):
         if "genome_build" in words[i]:
             genomeBuild = words[i + 1]
-        if "genome" in words[i] and "build" in words[i+1]:
+        if "genome" in words[i] and "build" in words[i + 1]:
             genomeBuild = words[i + 2]
     return genomeBuild
+
 
 """
     This Function Intakes orgainsm name and then returns
     refseq_id for it's latest genome build 
 """
+
+
 def getLatestRefGenomeName(org_name: str):
-    command = "./datasets assembly_descriptors tax_name '{}' --refseq > orgRefSeqInfo.txt".format(org_name)
+    command = "./datasets assembly_descriptors tax_name '{}' --refseq > orgRefSeqInfo.txt".format(
+        org_name
+    )
     refSeqAccessionID = None
-    file = open("orgRefSeqInfo.txt", 'r')
+    file = open("orgRefSeqInfo.txt", "r")
     textOfAccessionFile = []
     for line in file:
         textOfAccessionFile.extend(line.split('"'))
 
     for words in range(len(textOfAccessionFile)):
-        if ("assembly_accession" in textOfAccessionFile[words]):
+        if "assembly_accession" in textOfAccessionFile[words]:
             refSeqAccessionID = textOfAccessionFile[words + 2]
             break
     return refSeqAccessionID
+
 
 """
     For Given Refseq id this function downloads reference Genome
     and it's annotations and returns the name of the downloaded
     return annotation File name, reference Genome Filename 
 """
+
+
 def downloadGenomeUsingWget(refSeqId):
-    command = "(esearch -db assembly --query '{}' | esummary) > refGenomeScrape.xml".format(refSeqId)
+    command = "(esearch -db assembly --query '{}' | esummary) > refGenomeScrape.xml".format(
+        refSeqId
+    )
     os.system(command)
     ftpPathToGenome = None
-    refGenomeScrape = open("refGenomeScrape.xml", 'r')
+    refGenomeScrape = open("refGenomeScrape.xml", "r")
     root = ET.parse(refGenomeScrape)
     for i in root.iter("FtpPath_RefSeq"):
         ftpPathToGenome = i
     refGenomeScrape.close()
     name = ftpPathToGenome.split("/")
-    command = "wget -cNrv -t 45 '{}/{}_genomic.gtf.gz' -O {}_annotations.gz".format(ftpPathToGenome, name[-1], name[-1])
+    command = "wget -cNrv -t 45 '{}/{}_genomic.gtf.gz' -O {}_annotations.gz".format(
+        ftpPathToGenome, name[-1], name[-1]
+    )
     os.system(command)
     annotationFileName = "{}_annotations.gz".format(name[-1])
-    command = "wget -cNrv -t 45 '{}/{}_genomic.fna.gz' -O {}_genome.gz".format(ftpPathToGenome, name[-1], name[-1])
+    command = "wget -cNrv -t 45 '{}/{}_genomic.fna.gz' -O {}_genome.gz".format(
+        ftpPathToGenome, name[-1], name[-1]
+    )
     os.system(command)
     refgenomeFileName = "{}_genome.gz".format(name[-1])
     return annotationFileName, refgenomeFileName
@@ -128,30 +153,37 @@ def downloadGenomeUsingWget(refSeqId):
         use wget to download Reference genome using Accession ID
 """
 
+
 def downloadRefGenome(GEOID: str, OrganismName):
     annotationFileName, refGenomeFileName = None, None
     htmlFile = getHTML(GEOID)
     genomeBuild = findGenomeBuild(htmlFile)
-    if (genomeBuild == None):
+    if genomeBuild == None:
         refGenomName = getLatestRefGenomeName(OrganismName)
         annotationFileName, refGenomeFileName = downloadGenomeUsingWget(refGenomName)
         return annotationFileName, refGenomeFileName
     else:
         # Search for Refseq id in esearch assmbly Results
-        command = "(esearch -db assembly --query '{}' | esummary )> refGenomeScrape.xml".format(genomeBuild)
+        command = "(esearch -db assembly --query '{}' | esummary )> refGenomeScrape.xml".format(
+            genomeBuild
+        )
         os.system(command)
-        refGenomeScrapeFile = open("refGenomeScrape.xml",'r')
+        refGenomeScrapeFile = open("refGenomeScrape.xml", "r")
         root = ET.parse(refGenomeScrapeFile)
         refGenomeName = None
         for i in root.iter("FtpPath_RefSeq"):
             refGenomeName = i
         # If RefSeq id doesn't Exists in esearch, then download latest genome
-        if refGenomeName==None:
+        if refGenomeName == None:
             refGenomName = getLatestRefGenomeName(OrganismName)
-            annotationFileName, refGenomeFileName = downloadGenomeUsingWget(refGenomName)
+            annotationFileName, refGenomeFileName = downloadGenomeUsingWget(
+                refGenomName
+            )
             return annotationFileName, refGenomeFileName
-        else: # If Refseq Id Exists in Esearch scrape then download that build
-            annotationFileName,refGenomeFileName = downloadGenomeUsingWget(refGenomeName)
+        else:  # If Refseq Id Exists in Esearch scrape then download that build
+            annotationFileName, refGenomeFileName = downloadGenomeUsingWget(
+                refGenomeName
+            )
             return annotationFileName, refGenomeFileName
 
 
@@ -161,7 +193,7 @@ def createFastqFiles(sraFileNames):
     for i in range(len(sraFileNames)):
         command = "fastq-dump --split-3 {}".format(sraFileNames[i])
         os.system(command)
-        if (os.path.exists(sraFileNames[i] + "_1.fastq")):
+        if os.path.exists(sraFileNames[i] + "_1.fastq"):
             oneNames.append(sraFileNames[i] + "_1.fastq")
             secondNames.append(sraFileNames[i] + "_2.fastq")
         else:
@@ -169,35 +201,140 @@ def createFastqFiles(sraFileNames):
     return oneNames, secondNames
 
 
-def removerRnaContamination(firstName: list, secondName: list):
-    if (secondName == []):
-        command = ""
-        # os.system()
+def preprocess(firstList, secondList, corr_rRNA, corr_trim, sortmernaDbDir):
+    """
+    corr_rRNA trims out rRNA reads
+    corr_trim trims out bases with QS less than threshold
+    """
+    if corr_rRNA == True:
+        firstList, secondList = removerRnaContamination(
+            firstList, secondList, sortmernaDbDir, [], []
+        )
+    if corr_trim == True:
+        firstName, secondName = trimmingBadReads(
+            firstName=firstList, secondName=secondList
+        )
+    return firstList, secondList
+
+
+def removerRnaContamination(
+    firstName: list,
+    secondName: list,
+    sortmernaDbDir,
+    outputFirstName: list,
+    outputSecondName: list,
+):
+    """
+    Uses sortmerna library to filter out rRNA contamination
+    """
+    os.system("cp {}/* {}".format(sortmernaDbDir, os.getcwd()))
+    referenceStr = "--ref "  # Complete this string
+    if secondName == []:
+        for i, read in enumerate(firstName):
+            os.system(
+                "sortmerna {} --reads {} --fastx --other {}/rRNAfiltered{}".format(
+                    referenceStr, read, os.getcwd(), i
+                )
+            )
+            outputFirstName.append("rRNAfiltered{}.fastq".format(i))
     else:
-        pass
+        for i in range(len(firstName)):
+            os.system(
+                "sortmerna {} --reads {} --reads {} --fastx --other {}/rRNAfiltered{} --out2".format(
+                    referenceStr, firstName[i], secondName[i], os.getcwd(), i
+                )
+            )
+            outputFirstName.append("rRNAfiltered{}_fwd.fastq".format(i))
+            outputSecondName.append("rRNAfiltered{}_rev.fastq".format(i))
+    os.system("rm -f {}").format(referenceStr)  # Complete this
+    return (outputFirstName, outputSecondName)
+
+
+def trimmingBadReads(phred=33, firstName=[], secondName=[]):
+    """
+    uses trimmomatic to trim out bases with low scores,
+    uses default parameters i.e. removes bases with quality score < 20 in windows of 5
+    """
+    illuminaclip_adapters = (
+        "ILLUMINACLIP:/usr/local/TRIMHOME/adapters/TruSeq3-SE.fa:2:30:10"
+    )
+    illuminaclip_Attribute = "SLIDINGWINDOW:5:20 MINLEN:30"
+    attribute = " SE -threads {} -phred{}".format(multiprocessing.cpu_count(), phred)
+    if secondName == []:
+        firstNameTrimmed = []
+        secondNameTrimmed = []
+        for i in range(len(firstName)):
+            os.system(
+                "java -jar /usr/local/TRIMHOME/trimmomatic.jar {} {}/{}.fastq {}/trimmedRead{}.fastq {} {}".format(
+                    attribute,
+                    os.getcwd,
+                    firstName[i],
+                    os.getcwd(),
+                    firstName,
+                    illuminaclip_adapters,
+                    illuminaclip_Attribute,
+                )
+            )
+            firstNameTrimmed.append("trimmedRead{}".format(firstName[i]))
+        return firstNameTrimmed, secondNameTrimmed
+    else:
+        firstNameTrimmed = []
+        secondNameTrimmed = []
+        for i in range(len(firstName)):
+            fwd_input = os.getcwd() + "/" + firstName[i]
+            rev_input = os.getcwd() + "/" + secondName[i]
+            output_forward_paired = os.getcwd() + "/trimmedRead" + firstName[i]
+            output_forward_unpaired = os.getcwd() + "/" + "removethis_1.fastq"
+            output_reverse_paired = os.getcwd() + "/trimmedRead" + secondName[i]
+            output_reverse_unpaired = os.getcwd() + "/" + "removethis_2.fastq"
+            os.system(
+                "java -jar /usr/local/TRIMHOME/trimmomatic.jar {} {}.fastq {}.fastq {}.fastq {}.fastq {}.fastq {}.fastq {} {}".format(
+                    attribute,
+                    fwd_input,
+                    rev_input,
+                    output_forward_paired,
+                    output_forward_unpaired,
+                    output_reverse_paired,
+                    output_reverse_unpaired,
+                    illuminaclip_adapters,
+                    illuminaclip_Attribute,
+                )
+            )
+            os.system("rm -f *removethis_1.fastq *removethis_2.fastq")
+            firstNameTrimmed.append("trimmedRead{}".format(firstName[i]))
+            secondNameTrimmed.append("trimmedRead{}".format(secondName[i]))
+        return firstNameTrimmed, secondNameTrimmed
 
 
 def createIndex(refGenome: str, annotations: str):
-    command = "hisat-build -p {} {} {}".format(multiprocessing.cpu_count(), refGenome, annotations)
+    command = "hisat-build -p {} {} {}".format(
+        multiprocessing.cpu_count(), refGenome, annotations
+    )
     os.system(command)
     return annotations
 
 
-def startAlignment(indexLocation: str, firstFileNamesList: list, secondFilesNameList=[]):
+def startAlignment(
+    indexLocation: str, firstFileNamesList: list, secondFilesNameList=[]
+):
     outputFilenames = []
-    if (len(secondFilesNameList) == 0):
+    if len(secondFilesNameList) == 0:
         for i in range(len(firstFileNamesList)):
-            command = "hisat2 -x {} -p {} -U {} -S output_{}.sam".format(indexLocation, multiprocessing.cpu_count(),
-                                                                         firstFileNamesList[i], i + 1)
+            command = "hisat2 -x {} -p {} -U {} -S output_{}.sam".format(
+                indexLocation, multiprocessing.cpu_count(), firstFileNamesList[i], i + 1
+            )
             os.system(command)
             outputName = "output_{}.sam".format(i + 1)
             outputFilenames.append(outputFilenames)
     else:
         for i in range(len(firstFileNamesList)):
-            command = "hisat2 -x {} -p {} -1 {} -2 {} -S output_{}.sam".format(indexLocation,
-                                                                               multiprocessing.cpu_count(),
-                                                                               firstFileNamesList[i],
-                                                                               secondFilesNameList[i], i + 1)
+            command = "hisat2 -x {} -p {} -1 {} -2 {} -S output_{}.sam".format(
+                indexLocation,
+                multiprocessing.cpu_count(),
+                firstFileNamesList[i],
+                secondFilesNameList[i],
+                i + 1,
+            )
             os.system(command)
             outputName = "output_{}.sam".format(i + 1)
             outputFilenames.append(outputFilenames)
@@ -207,7 +344,9 @@ def startAlignment(indexLocation: str, firstFileNamesList: list, secondFilesName
 def convertSamToBam(samFilenames):
     bamFileNames = []
     for i in range(len(samFilenames)):
-        command = "samtools view -S -b {} > {}".format(samFilenames[i], samFilenames[i][0:-3] + "bam")
+        command = "samtools view -S -b {} > {}".format(
+            samFilenames[i], samFilenames[i][0:-3] + "bam"
+        )
         os.system(command)
         bamFileNames.append(samFilenames[i][0:-3] + "bam")
     return bamFileNames
@@ -216,7 +355,9 @@ def convertSamToBam(samFilenames):
 def sortBamFiles(BamfileNames: list):
     sortedBamFileNames = []
     for i in range(len(BamfileNames)):
-        command = "samtools sort {} -o {}".format(BamfileNames[i], BamfileNames[i][0:-3] + "sorted.bam")
+        command = "samtools sort {} -o {}".format(
+            BamfileNames[i], BamfileNames[i][0:-3] + "sorted.bam"
+        )
         os.system(command)
         sortedBamFileNames.append(BamfileNames[i][0:-3] + "sorted.bam")
     return sortedBamFileNames
@@ -227,14 +368,14 @@ def createCountMatrix():
     pass
 
 
-if __name__ == '__main__':
-    refgenome = ''
+if __name__ == "__main__":
+    refgenome = ""
 
     # Example ID
     search_id = "GSE145919"
 
     # Over-writting with user Entered ID, only if present
-    if (len(sys.argv) > 1):
+    if len(sys.argv) > 1:
         search_id = sys.argv[1]
 
     print("Input GEOID is", search_id)
@@ -250,16 +391,16 @@ if __name__ == '__main__':
     pp = handle.read()
     # print(pp)
     tree = ET.fromstring(pp)
-    targetsra = ''
-    for item in tree.findall('DocSum'):
+    targetsra = ""
+    for item in tree.findall("DocSum"):
         for item2 in item.findall("Item"):
-            if item2.attrib['Name'] == 'taxon':
+            if item2.attrib["Name"] == "taxon":
                 refgenome = item2.text
-            if item2.attrib['Name'] == 'ExtRelations':
+            if item2.attrib["Name"] == "ExtRelations":
                 for item3 in item2.findall("Item"):
-                    if item3.attrib['Name'] == 'ExtRelation':
+                    if item3.attrib["Name"] == "ExtRelation":
                         for item4 in item3.findall("Item"):
-                            if item4.attrib['Name'] == 'TargetObject':
+                            if item4.attrib["Name"] == "TargetObject":
                                 targetsra = item4.text
 
     # Fetching Target SRA
@@ -284,7 +425,7 @@ if __name__ == '__main__':
     # SRR11550936
     # Searching for Downloaded SRA File in File System
     os.system("find . -name " + targetsra + "> downloadPath.txt")
-    downloadFileLocation = open("downloadPath.txt", "r").readline();
+    downloadFileLocation = open("downloadPath.txt", "r").readline()
 
     sraFileNames = ["Put List of All SRA File Names"]
 
@@ -300,7 +441,7 @@ if __name__ == '__main__':
     os.system("fastqc *fastq")  # Can be Modified
 
     # To Download Refernce Genome and it's Annotations
-    gtfName, fnaName = downloadRefGenome(search_id,refgenome)
+    gtfName, fnaName = downloadRefGenome(search_id, refgenome)
 
     # To Preprocess the data (rRNA contamination removal, trimming)
     preprocess(firstList, secondList)
