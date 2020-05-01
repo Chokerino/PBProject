@@ -123,7 +123,8 @@ def downloadGenomeUsingWget(refSeqId):
     refGenomeScrape = open("refGenomeScrape.xml", "r")
     root = ET.parse(refGenomeScrape)
     for i in root.iter("FtpPath_RefSeq"):
-        ftpPathToGenome = i
+        if len(str(i) != 0):
+            ftpPathToGenome = i
     refGenomeScrape.close()
     name = ftpPathToGenome.split("/")
     command = "wget -cNrv -t 45 '{}/{}_genomic.gtf.gz' -O {}_annotations.gz".format(
@@ -259,7 +260,11 @@ def trimmingBadReads(phred=33, firstName=[], secondName=[]):
         "ILLUMINACLIP:/usr/local/TRIMHOME/adapters/TruSeq3-SE.fa:2:30:10"
     )
     illuminaclip_Attribute = "SLIDINGWINDOW:5:20 MINLEN:30"
-    attribute = " SE -threads {} -phred{}".format(multiprocessing.cpu_count(), phred)
+    attribute = ""
+    if secondName == []:
+        attribute = "SE -threads {} -phred{}".format(multiprocessing.cpu_count(), phred)
+    else:
+        attribute = "PE -threads {} -phred{}".format(multiprocessing.cpu_count(), phred)
     if secondName == []:
         firstNameTrimmed = []
         secondNameTrimmed = []
@@ -363,9 +368,27 @@ def sortBamFiles(BamfileNames: list):
     return sortedBamFileNames
 
 
-def createCountMatrix():
-    # http://genomespot.blogspot.com/2015/01/generate-rna-seq-count-matrix-with.html
-    pass
+def qualityControl():
+    cwd = os.getcwd()
+    os.system("mkdir qcReports")
+    os.system("fastqc -t {} -o qcReports/ *.fastq".format(multiprocessing.cpu_count()))
+    os.chdir("qcReports")
+    os.system("multiqc .")
+    # send(multiqc_report.html)     IMPLEMENT THIS
+
+
+def createCountMatrix(pathToGTF, bamInputFile):
+    """
+    Exon specific expression and alternative splicing not implemented
+    Uses featureCounts
+
+    Reference - http://genomespot.blogspot.com/2015/01/generate-rna-seq-count-matrix-with.html
+    """
+    os.system(
+        "featureCounts -Q 10 -T {} -a {} -o countMatrix.txt {}.bam".format(
+            multiprocessing.cpu_count(), pathToGTF, bamInputFile
+        )
+    )
 
 
 if __name__ == "__main__":
@@ -457,6 +480,9 @@ if __name__ == "__main__":
 
     # Sort Bam Files // Done
     sortedBamFileNames = sortBamFiles(BamFileNames)
+
+    # Quality Control
+    qc = qualityControl()
 
     # Create Count Matrix (User Option)
     createCountMatrix()
