@@ -164,10 +164,11 @@ def downloadRefGenome(GEOID: str, OrganismName):
         annotationFileName, refGenomeFileName = downloadGenomeUsingWget(refGenomName)
         return annotationFileName, refGenomeFileName
     else:
+        print(genomeBuild, "<- Genome Build")
         # Search for Refseq id in esearch assmbly Results
-        command = "(esearch -db assembly --query '{}' | esummary )> refGenomeScrape.xml".format(
+        command = "(esearch -db assembly --query '{}' | esummary)> refGenomeScrape.xml".format(
             genomeBuild
-        )
+        )  
         os.system(command)
         refGenomeScrapeFile = open("refGenomeScrape.xml", "r")
         root = ET.parse(refGenomeScrapeFile)
@@ -403,7 +404,6 @@ def createCountMatrix(pathToGTF, bamInputFile):
 
 
 if __name__ == "__main__":
-    
     refgenome = ""
 
     # Example IDGSE138181
@@ -460,32 +460,31 @@ if __name__ == "__main__":
     # Searching for Downloaded SRA File in File System
     os.system("find . -name " + targetsra + "> downloadPath.txt")
     downloadFileLocation = open("downloadPath.txt", "r").readline()
-
-    sraFileNames = ["Put List of All SRA File Names"]
+    #sraFileNames = ["Put List of All SRA File Names"]
     
     # Creating fastq file from Downloaded SRA File
-    firstList, secondList = createFastqFiles([])
+    #firstList, secondList = createFastqFiles([])
 
     # To Download Refernce Genome and it's Annotations
-    gtfName, fnaName = downloadRefGenome(search_id, refgenome)
+    gtfName, fnaName = downloadRefGenome("GSE146443", "Caenorhabditis elegans")
 
     # To Preprocess the data (rRNA contamination removal, trimming)
-    preprocess(firstList, secondList)
+    #preprocess(firstList, secondList)
 
     # Creating Index for Hisat2
-    index_name = createIndex(fnaName, gtfName)
+    #index_name = createIndex(fnaName, gtfName)
 
     # Starting Alignment //Done
-    listOfOutputFiles = startAlignment(index_name, firstList, secondList)
+    #listOfOutputFiles = startAlignment(index_name, firstList, secondList)
 
     # Converting Sam to Bam // Done
-    BamFileNames = convertSamToBam(listOfOutputFiles)
+    #BamFileNames = convertSamToBam(listOfOutputFiles)
 
     # Sort Bam Files // Done
-    sortedBamFileNames = sortBamFiles(BamFileNames)
+    #sortedBamFileNames = sortBamFiles(BamFileNames)
 
     # Quality Control
-    qc = qualityControl()
+    #qc = qualityControl()
 
     # Create Count Matrix (User Option)
-    createCountMatrix()
+    #createCountMatrix()
