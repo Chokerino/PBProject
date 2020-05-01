@@ -173,7 +173,8 @@ def downloadRefGenome(GEOID: str, OrganismName):
         root = ET.parse(refGenomeScrapeFile)
         refGenomeName = None
         for i in root.iter("FtpPath_RefSeq"):
-            refGenomeName = i
+            if len(str(i) != 0):
+                refGenomeName = i
         # If RefSeq id doesn't Exists in esearch, then download latest genome
         if refGenomeName == None:
             refGenomName = getLatestRefGenomeName(OrganismName)
@@ -188,17 +189,27 @@ def downloadRefGenome(GEOID: str, OrganismName):
             return annotationFileName, refGenomeFileName
 
 
-def createFastqFiles(sraFileNames):
+def copyFilesFromSubdirs(sraFileNames):
+    listOfDirs = os.listdir()
+    for i in range(len(listOfDirs)):
+        os.system("mv {}/* {}".format(listOfDirs[i], os.getcwd()))
+    for dirs in listOfDirs:
+        os.system("rm -rf {}".format(dirs))
+    sraFileNames = os.listdir()
+    return sraFileNames
+
+def createFastqFiles(allSRAFiles):
+    allSRAFiles = copyFilesFromSubdirs(allSRAFiles)
     oneNames = []
     secondNames = []
-    for i in range(len(sraFileNames)):
-        command = "fastq-dump --split-3 {}".format(sraFileNames[i])
+    for i in range(len(allSRAFiles)):
+        command = "fastq-dump --split-3 {}".format(allSRAFiles[i])
         os.system(command)
-        if os.path.exists(sraFileNames[i] + "_1.fastq"):
-            oneNames.append(sraFileNames[i] + "_1.fastq")
-            secondNames.append(sraFileNames[i] + "_2.fastq")
+        if os.path.exists(allSRAFiles[i] + "_1.fastq"):
+            oneNames.append(allSRAFiles[i] + "_1.fastq")
+            secondNames.append(allSRAFiles[i] + "_2.fastq")
         else:
-            oneNames.append(sraFileNames[i] + ".fastq")
+            oneNames.append(allSRAFiles[i] + ".fastq")
     return oneNames, secondNames
 
 
@@ -392,10 +403,11 @@ def createCountMatrix(pathToGTF, bamInputFile):
 
 
 if __name__ == "__main__":
+    
     refgenome = ""
 
-    # Example ID
-    search_id = "GSE145919"
+    # Example IDGSE138181
+    search_id = "GSE146443"
 
     # Over-writting with user Entered ID, only if present
     if len(sys.argv) > 1:
@@ -441,27 +453,18 @@ if __name__ == "__main__":
     # os.system("pysradb metadata SRP250724")
     print("Organism is", refgenome)
 
-    targetsra = "app*"
     # Downloading .SRA file
-    # db = sraweb.SRAweb()
-    # db.download(targetsra, skip_confirmation=True);
+    db = sraweb.SRAweb()
+    db.download(targetsra, skip_confirmation=True)
     # SRR11550936
     # Searching for Downloaded SRA File in File System
     os.system("find . -name " + targetsra + "> downloadPath.txt")
     downloadFileLocation = open("downloadPath.txt", "r").readline()
 
     sraFileNames = ["Put List of All SRA File Names"]
-
+    
     # Creating fastq file from Downloaded SRA File
-    firstList, secondList = createFastqFiles(sraFileNames)
-
-    # Remove rRna Contamination
-    removerRnaContamination(firstList, secondList)
-
-    #
-
-    # Quality Control
-    os.system("fastqc *fastq")  # Can be Modified
+    firstList, secondList = createFastqFiles([])
 
     # To Download Refernce Genome and it's Annotations
     gtfName, fnaName = downloadRefGenome(search_id, refgenome)
