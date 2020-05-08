@@ -404,16 +404,22 @@ def createCountMatrix(pathToGTF, bamInputFile):
 
 
 if __name__ == "__main__":
+    print("Process ID: {}".format(os.getpid()))
     refgenome = ""
 
     # Example IDGSE138181
     search_id = "GSE146443"
-
-    # Over-writting with user Entered ID, only if present
-    if len(sys.argv) > 1:
-        search_id = sys.argv[1]
+    breakpoint = 2
+    try:
+        # Over-writting with user Entered ID, only if present
+        if len(sys.argv) > 1:
+            breakpoint = int(sys.argv[1])
+            search_id = sys.argv[2]
+    except:
+        print("Exception Occured during argument Parsing")
 
     print("Input GEOID is", search_id)
+    print("Breaking step is {}".format(breakpoint))
 
     Entrez.email = "bhavay18384@iiitd.ac.in"
     handle = Entrez.esearch(db="gds", term=search_id)
