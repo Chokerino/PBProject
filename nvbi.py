@@ -26,6 +26,12 @@ def idselector(tree):
     return id
 
 
+def writeMessage(geoid,message):
+    pythonoutputfile = open("~/{}/python_script_realtime_log.txt".format(geoid),"a")
+    pythonoutputfile.write(message+"\n")
+    pythonoutputfile.close()
+    return 0
+
 """
     given GEOID (GSE)
     This Function esearch it's corresponding GSM ID
@@ -417,9 +423,14 @@ if __name__ == "__main__":
             search_id = sys.argv[2]
     except:
         print("Exception Occured during argument Parsing")
+        writeMessage(search_id,"Process ID: {}".format(os.getpid()))
+        writeMessage(search_id,"Exception Occured during argument Parsing")
+
 
     print("Input GEOID is", search_id)
     print("Breaking step is {}".format(breakpoint))
+    writeMessage(search_id,"Input GEOID is {}".format(search_id))
+
 
     Entrez.email = "bhavay18384@iiitd.ac.in"
     handle = Entrez.esearch(db="gds", term=search_id)
@@ -427,7 +438,9 @@ if __name__ == "__main__":
     # print(pp)
     tree = ET.fromstring(pp)
     print("Selecting the following ID")
+    writeMessage(search_id,"Selecting the following ID")
     id = idselector(tree)
+    writeMessage(search_id,str(id))
     handle = Entrez.esummary(db="gds", id=id)
     pp = handle.read()
     # print(pp)
@@ -446,18 +459,23 @@ if __name__ == "__main__":
 
     # Fetching Target SRA
     print("SRA in relation is ", targetsra)  # SRA to  be searched again
+    writeMessage(search_id,"SRA in relation is {}".format(targetsra))
+    writeMessage()
     handle = Entrez.esearch(db="sra", term=targetsra)
     pp = handle.read()
     # print(pp)
     tree = ET.fromstring(pp)
     print("Selecting the following ID")
+    writeMessage(search_id,"Selecting the following ID")
     id = idselector(tree)
+    writeMessage(search_id,str(id))
     variable = Entrez.efetch(db="sra", id=id, rettype="full")
     # print(variable.read())
 
     # import os
     # os.system("pysradb metadata SRP250724")
     print("Organism is", refgenome)
+    writeMessage(search_id,"Organism is {}".format(refgenome))
 
     # Downloading .SRA file
     db = sraweb.SRAweb()
