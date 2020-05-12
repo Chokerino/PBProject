@@ -18,8 +18,6 @@ class Download_fq_from_sra:
         os.system('mkdir {}'.format(self.sra_id))
         metadata = self.get_metadata()
         print(metadata)
-        print(metadata.loc[2, "run_accession"])
-        os.system("echo $HOME")
         os.chdir(self.sra_id)
         for run_acc in metadata.loc[:,"run_accession"]:
             print(run_acc)
