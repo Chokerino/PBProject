@@ -223,7 +223,9 @@ def download_pre_built_idx(ht2_idx_url, genomeBuild):
         if return_val == 0:
             os.system("tar -xf {}.tar.gz".format(genomeBuild))
             os.chdir(genomeBuild)
-            return os.getcwd(), annotationFileName, genomeBuild.lower()
+            to_ret_path = os.getcwd()
+            os.chdir('..')
+            return to_ret_path, annotationFileName, genomeBuild.lower()
         else:
             return -1, annotationFileName, genomeBuild.lower()
     else:
@@ -484,10 +486,10 @@ def removerRnaContamination(
 def downloadOnlySRA(db, sra_id):
     df = db.sra_metadata(sra_id, detailed=True)
     print(os.getcwd())
-    os.system('mkdir {}'.format(sra_id))
+    # os.system('mkdir {}'.format(sra_id))
     metadata = df
     print(metadata)
-    os.chdir(sra_id)
+    # os.chdir(sra_id)
     for run_acc in metadata.loc[:,"run_accession"]:
         print(run_acc)
         return_value = os.system("prefetch -p -O . {}".format(str(run_acc)))
@@ -634,6 +636,7 @@ def qualityControl():
     os.system("fastqc -t {} -o qcReports/ *.fastq".format(12))
     os.chdir("qcReports")
     os.system("multiqc .")
+    os.chdir('..')
     # send(multiqc_report.html)     IMPLEMENT THIS
 
 
