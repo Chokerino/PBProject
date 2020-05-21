@@ -27,9 +27,9 @@ def idselector(tree):
 
 
 def writeMessage(geoid,message):
-    pythonoutputfile = open("~/{}/python_script_realtime_log.txt".format(geoid),"a")
-    pythonoutputfile.write(message+"\n")
-    pythonoutputfile.close()
+    #pythonoutputfile = open("~/{}/python_script_realtime_log.txt".format(geoid),"a")
+    #pythonoutputfile.write(message+"\n")
+    #pythonoutputfile.close()
     return 0
 
 """
@@ -414,7 +414,7 @@ if __name__ == "__main__":
     refgenome = ""
 
     # Example IDGSE138181
-    search_id = "GSE146443"
+    search_id = "GSE29968"
     breakpoint = 2
     try:
         # Over-writting with user Entered ID, only if present
@@ -460,7 +460,7 @@ if __name__ == "__main__":
     # Fetching Target SRA
     print("SRA in relation is ", targetsra)  # SRA to  be searched again
     writeMessage(search_id,"SRA in relation is {}".format(targetsra))
-    writeMessage()
+    #writeMessage()
     handle = Entrez.esearch(db="sra", term=targetsra)
     pp = handle.read()
     # print(pp)

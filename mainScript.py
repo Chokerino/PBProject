@@ -8,7 +8,7 @@ import nltk
 from bs4 import BeautifulSoup
 from nltk.tokenize import RegexpTokenizer
 import multiprocessing
-import getopt, sys 
+import getopt, sys
 from Bio import SeqIO
 import re
 import glob
@@ -35,6 +35,7 @@ def idselector(tree):
             x += 1
     return id
 
+
 def check_with_assembly(accession):
     """
         For all the potential genome builds, check one by one which ine actually exists on ncbi assembly
@@ -45,10 +46,12 @@ def check_with_assembly(accession):
     print(xml_result)
     tree = ET.fromstring(xml_result)
     for item in tree.findall("Count"):
-        if(int(item.text)>0):
+        if int(item.text) > 0:
             return True
         else:
             return False
+
+
 def findGenomeBuild(htmlFile):
     """
         For Given HTML File this function scrapes that HTML file
@@ -95,7 +98,7 @@ def findGenomeBuild(htmlFile):
             print(geek)
             for j in geek:
                 if bool(re.search(r"^([^0-9]*)$", j)) == False:
-                    if(check_with_assembly(j)==True):
+                    if check_with_assembly(j) == True:
                         final_candidates_build.append(j)
     else:
         for i in selected_text_for_build:
@@ -105,16 +108,21 @@ def findGenomeBuild(htmlFile):
             if len(geek) > 0:
                 for j in geek:
                     if bool(re.search(r"^([^0-9]*)$", j)) == False:
-                        if(check_with_assembly(j)==True):
+                        if check_with_assembly(j) == True:
                             final_candidates_build.append(j)
     print(final_candidates_build)
-    return final_candidates_build[0]
+    if len(final_candidates_build) > 0:
+        return final_candidates_build[0]
+    else:
+        return None
 
-def writeMessage(geoid,message):
-    pythonoutputfile = open("~/{}/python_script_realtime_log.txt".format(geoid),"a")
-    pythonoutputfile.write(message+"\n")
+
+def writeMessage(message):
+    pythonoutputfile = open("python_script_realtime_log.txt", "a")
+    pythonoutputfile.write(message + "\n")
     pythonoutputfile.close()
     return 0
+
 
 """
     given GEOID (GSE)
@@ -124,17 +132,17 @@ def writeMessage(geoid,message):
 
 
 def getHTML(geo_id):
-    paramEutils = { 'usehistory':'Y' }        
+    paramEutils = {"usehistory": "Y"}
     handle = Entrez.esearch(db="gds", term=geo_id, **paramEutils)
     res = Entrez.read(handle)
-    paramEutils['WebEnv'] = res['WebEnv']          
-    paramEutils['query_key'] = res['QueryKey']    
-    paramEutils['rettype'] = 'xml'                
+    paramEutils["WebEnv"] = res["WebEnv"]
+    paramEutils["query_key"] = res["QueryKey"]
+    paramEutils["rettype"] = "xml"
     result = Entrez.esummary(db="gds", **paramEutils)
     xml_res = Entrez.read(result)
     SampleID = None
     for id in xml_res:
-        SampleID = id['Accession']
+        SampleID = id["Accession"]
         if SampleID[0:3] == "GSM":
             break
     command = "wget https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={} -O {}/experimentSample.html".format(
@@ -149,16 +157,21 @@ def getHTML(geo_id):
     and returns whether the result is strand-specific 
     or not 
     """
+
+
 def isStranded(GSM_ID):
-    command = "wget https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={} -O strandedness.html".format(GSM_ID)
+    command = "wget https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={} -O strandedness.html".format(
+        GSM_ID
+    )
     os.system(command)
-    strandFile = open("strandedness.html",'r')
+    strandFile = open("strandedness.html", "r")
     for line in strandFile:
-        if("strand-specific" in line.lower()):
+        if "strand-specific" in line.lower():
             strandFile.close()
             return True
     strandFile.close()
     return False
+
 
 """
     Still Experimental (Under Build)
@@ -166,6 +179,7 @@ def isStranded(GSM_ID):
     for genome_build and if it exists returns genome_build
     else None
 """
+
 
 def get_ens_annotations(genomeBuild):
     """
@@ -178,11 +192,13 @@ def get_ens_annotations(genomeBuild):
     )
     ret_value = os.system("wget {} -O hisat2_annotation.gtf.gz".format(url))
     if ret_value != 0:
+        os.system("rm hisat2_annotation.gtf.gz")
         return False, "hisat2_annotation.gtf.gz"
     else:
         return True, "hisat2_annotation.gtf.gz"
 
-def check_pre_built(genomeBuild, ht2_idx_url):
+
+def check_pre_built(genomeBuild, ht2_idx_url, org_name, to_build):
     """
         Main function which calls all the other download and build functions
         first check if genome build exists
@@ -193,19 +209,24 @@ def check_pre_built(genomeBuild, ht2_idx_url):
     refGenomeFileName = ""
     print("in check {}".format(genomeBuild))
     if genomeBuild != None:
-        ret, annotationFileName, refGenomeFileName = download_pre_built_idx(ht2_idx_url, genomeBuild)
+        ret, annotationFileName, refGenomeFileName = download_pre_built_idx(
+            ht2_idx_url, genomeBuild
+        )
         if ret == -1:
             print("building Index")
-            (annotationFileName, refGenomeFileName) = downloadRefGenome()
+            (annotationFileName, refGenomeFileName) = downloadRefGenome(
+                genomeBuild, org_name
+            )
             print(annotationFileName, refGenomeFileName)
-            build_status = build_index(refGenomeFileName)
-            print(build_status)
+            if to_build == True:
+                build_status = build_index(refGenomeFileName)
     else:
         print("building Index else")
-        annotationFileName, refGenomeFileName = downloadRefGenome()
-        build_status = build_index(refGenomeFileName)
-        print(build_status)
+        annotationFileName, refGenomeFileName = downloadRefGenome(genomeBuild, org_name)
+        if to_build == True:
+            build_status = build_index(refGenomeFileName)
     return annotationFileName, refGenomeFileName
+
 
 def download_pre_built_idx(ht2_idx_url, genomeBuild):
     """
@@ -224,13 +245,12 @@ def download_pre_built_idx(ht2_idx_url, genomeBuild):
             os.system("tar -xf {}.tar.gz".format(genomeBuild))
             os.chdir(genomeBuild)
             to_ret_path = os.getcwd()
-            os.chdir('..')
+            os.chdir("..")
             return to_ret_path, annotationFileName, genomeBuild.lower()
         else:
             return -1, annotationFileName, genomeBuild.lower()
     else:
         return -1, annotationFileName, genomeBuild.lower()
-
 
 
 """
@@ -275,12 +295,12 @@ def downloadGenomeUsingWget(refSeqId):
         return annotation File name, reference Genome Filename 
     """
     print("\n REFSEQID {} \n".format(refSeqId))
-    paramEutils = { 'usehistory':'Y' }        
+    paramEutils = {"usehistory": "Y"}
     handle = Entrez.esearch(db="assembly", term=refSeqId, **paramEutils)
     res = Entrez.read(handle)
-    paramEutils['WebEnv'] = res['WebEnv']          
-    paramEutils['query_key'] = res['QueryKey']    
-    paramEutils['rettype'] = 'xml'                
+    paramEutils["WebEnv"] = res["WebEnv"]
+    paramEutils["query_key"] = res["QueryKey"]
+    paramEutils["rettype"] = "xml"
     result = Entrez.esummary(db="assembly", **paramEutils)
     xml_res = result.read()
     ftpPathToGenome = None
@@ -302,7 +322,10 @@ def downloadGenomeUsingWget(refSeqId):
     )
     os.system(command)
     refgenomeFileName = "{}_genome.fna.gz".format(name[-1])
+    os.system("gunzip {}".format(refgenomeFileName))
+    refgenomeFileName = str(name[-1]) + "_genome.fna"
     return annotationFileName, refgenomeFileName
+
 
 """
     Put GEOID->eSearch->  get GSM_ID from Here
@@ -337,22 +360,20 @@ def downloadRefGenome(genomeBuild, org_name):
     annotationFileName, refGenomeFileName = None, None
     if genomeBuild == None:
         refGenomeName = getLatestRefGenomeName(org_name)
-        annotationFileName, refGenomeFileName = downloadGenomeUsingWget(
-            refGenomeName
-        )
+        annotationFileName, refGenomeFileName = downloadGenomeUsingWget(refGenomeName)
         print("annotatin done")
         return annotationFileName, refGenomeFileName
     else:
         print(genomeBuild, "<- Genome Build")
         # Search for Refseq id in esearch assmbly Results
-        
+
         print("EXECUTING COMMANFG LONG COMMAND")
-        paramEutils = { 'usehistory':'Y' }        
+        paramEutils = {"usehistory": "Y"}
         handle = Entrez.esearch(db="assembly", term=genomeBuild, **paramEutils)
         res = Entrez.read(handle)
-        paramEutils['WebEnv'] = res['WebEnv']          
-        paramEutils['query_key'] = res['QueryKey']    
-        paramEutils['rettype'] = 'xml'                
+        paramEutils["WebEnv"] = res["WebEnv"]
+        paramEutils["query_key"] = res["QueryKey"]
+        paramEutils["rettype"] = "xml"
         result = Entrez.esummary(db="assembly", **paramEutils)
         xml_res = result.read()
         # erret = os.system(command)
@@ -368,18 +389,17 @@ def downloadRefGenome(genomeBuild, org_name):
         if refGenomeName == None:
             refGenomeName = getLatestRefGenomeName(org_name)
             print(refGenomeName)
-            (
-                annotationFileName,
-                refGenomeFileName,
-            ) = downloadGenomeUsingWget(refGenomeName)
+            (annotationFileName, refGenomeFileName,) = downloadGenomeUsingWget(
+                refGenomeName
+            )
             return annotationFileName, refGenomeFileName
         else:  # If Refseq Id Exists in Esearch scrape then download that build
             print("IN ELSE BLOCK")
             name = (refGenomeName).split("/")
             name_minus_one = name[-1]
-            annotationFileName = str(name_minus_one)+"_annotations.gtf.gz"
-            refGenomeFileName = str(name_minus_one)+"_genome.fna.gz"
-            
+            annotationFileName = str(name_minus_one) + "_annotations.gtf.gz"
+            refGenomeFileName = str(name_minus_one) + "_genome.fna.gz"
+
             print(refGenomeFileName)
             command = "wget -crv -t 45 '{}/{}_genomic.gtf.gz' -O {}".format(
                 refGenomeName, name[-1], annotationFileName
@@ -390,7 +410,7 @@ def downloadRefGenome(genomeBuild, org_name):
             )
             os.system(command)
             os.system("gunzip {}".format(refGenomeFileName))
-            refGenomeFileName = str(name_minus_one)+"_genome.fna"
+            refGenomeFileName = str(name_minus_one) + "_genome.fna"
             print(name[-1])
             print("IN DOWNLOAD GENOME FUNCTION", refGenomeFileName)
             return (annotationFileName, refGenomeFileName)
@@ -405,28 +425,31 @@ def copyFilesFromSubdirs(sraFileNames):
     sraFileNames = os.listdir()
     return sraFileNames
 
+
 def download_fq_file(db, sra_id):
     print(os.getcwd())
-    #os.system('mkdir {}'.format(sra_id))
+    # os.system('mkdir {}'.format(sra_id))
     metadata = db.sra_metadata(sra_id, detailed=True)
     print(metadata)
-    #os.chdir(sra_id)
-    for run_acc in metadata.loc[:,"run_accession"]:
+    # os.chdir(sra_id)
+    for run_acc in metadata.loc[:, "run_accession"]:
         print(run_acc)
-        return_value = os.system("fasterq-dump {} -p -t $HOME/temp_files".format(str(run_acc)))
+        return_value = os.system(
+            "fasterq-dump {} -p -t $HOME/temp_files".format(str(run_acc))
+        )
         print(return_value)
 
 
 def createFastqFiles(allSRRIds):
     oneNames = []
     secondNames = []
-    print(os.gtcwd())
-    check_paired_list = glob.glob('*_1.fastq')
+    print(os.getcwd())
+    check_paired_list = glob.glob("*_1.fastq")
     check_paired = False
-    if(len(check_paired_list)>0):
+    if len(check_paired_list) > 0:
         check_paired = True
     for i in range(len(allSRRIds)):
-        if check_paired:
+        if check_paired == True:
             oneNames.append(allSRRIds[i] + "_1.fastq")
             secondNames.append(allSRRIds[i] + "_2.fastq")
         else:
@@ -434,7 +457,16 @@ def createFastqFiles(allSRRIds):
     return oneNames, secondNames
 
 
-def preprocess(firstList, secondList, corr_rRNA, corr_trim, sortmernaDbDir):
+def preprocess(
+    firstList,
+    secondList,
+    corr_rRNA,
+    corr_trim,
+    sortmernaDbDir,
+    min_qual1,
+    min_read_len1,
+    len_window1,
+):
     """
     corr_rRNA trims out rRNA reads
     corr_trim trims out bases with QS less than threshold
@@ -445,7 +477,11 @@ def preprocess(firstList, secondList, corr_rRNA, corr_trim, sortmernaDbDir):
         )
     if corr_trim == True:
         firstList, secondList = trimmingBadReads(
-            firstName=firstList, secondName=secondList
+            firstName=firstList,
+            secondName=secondList,
+            min_qual=min_qual1,
+            min_read_len=min_read_len1,
+            len_window=len_window1,
         )
     return firstList, secondList
 
@@ -490,22 +526,26 @@ def downloadOnlySRA(db, sra_id):
     metadata = df
     print(metadata)
     # os.chdir(sra_id)
-    for run_acc in metadata.loc[:,"run_accession"]:
+    for run_acc in metadata.loc[:, "run_accession"]:
         print(run_acc)
         return_value = os.system("prefetch -p -O . {}".format(str(run_acc)))
         print(return_value)
 
 
-def trimmingBadReads(phred=33, firstName=[], secondName=[]):
+def trimmingBadReads(
+    phred=33, firstName=[], secondName=[], min_qual=20, min_read_len=30, len_window=5
+):
     """
     uses trimmomatic to trim out bases with low scores,
     uses default parameters i.e. removes bases with quality score < 20 in windows of 5
     """
     trim_home = os.environ["TRIMHOME"]
-    illuminaclip_adapters = (
-        "ILLUMINACLIP:{}/adapters/TruSeq3-SE.fa:2:30:10".format(trim_home)
+    illuminaclip_adapters = "ILLUMINACLIP:{}/adapters/TruSeq3-SE.fa:2:30:10".format(
+        trim_home
     )
-    illuminaclip_Attribute = "SLIDINGWINDOW:5:20 MINLEN:30"
+    illuminaclip_Attribute = "SLIDINGWINDOW:{}:{} MINLEN:{}".format(
+        len_window, min_qual, min_read_len
+    )
     attribute = ""
     if secondName == []:
         attribute = "SE -threads {} -phred{}".format(12, phred)
@@ -559,15 +599,12 @@ def trimmingBadReads(phred=33, firstName=[], secondName=[]):
         return firstNameTrimmed, secondNameTrimmed
 
 
-
 def build_index(refGenome):
     """
         Builds indexes using hisat2-build executable
         refGenome = takes the path to reference genome file
     """
-    command = "hisat2-build -p {} {} {}".format(
-        12, refGenome, "ht2idxes"
-    )
+    command = "hisat2-build -p {} {} {}".format(12, refGenome, "ht2idxes")
     ret_val = os.system(command)
     return ret_val
 
@@ -576,22 +613,19 @@ def startAlignment(
     indexLocation: str, firstFileNamesList: list, secondFilesNameList=[]
 ):
     outputFilenames = []
+    os.system("touch alignmentSummary")
     if len(secondFilesNameList) == 0:
         for i in range(len(firstFileNamesList)):
-            command = "hisat2 -x {} -p {} -U {} -S output_{}.sam".format(
-                indexLocation, 12, firstFileNamesList[i], i + 1
+            command = "hisat2 --summary-file alignmentSummary -x {} -p {} -U {} -S output_{}.sam".format(
+                indexLocation, 12, firstFileNamesList[i], firstFileNamesList[i][:-6],
             )
             os.system(command)
             outputName = "output_{}.sam".format(i + 1)
             outputFilenames.append(outputFilenames)
     else:
         for i in range(len(firstFileNamesList)):
-            command = "hisat2 -x {} -p {} -1 {} -2 {} -S output_{}.sam".format(
-                indexLocation,
-                12,
-                firstFileNamesList[i],
-                secondFilesNameList[i],
-                i + 1,
+            command = "hisat2 --summary-file alignmentSummary -x {} -p {} -1 {} -2 {} -S output_{}.sam".format(
+                indexLocation, 12, firstFileNamesList[i], secondFilesNameList[i], i + 1,
             )
             os.system(command)
             outputName = "output_{}.sam".format(i + 1)
@@ -620,15 +654,17 @@ def sortBamFiles(BamfileNames: list):
         sortedBamFileNames.append(BamfileNames[i][0:-3] + "sorted.bam")
     return sortedBamFileNames
 
+
 def getAllSRRIds(db, sra_id):
     metadata = db.sra_metadata(sra_id, detailed=True)
     print(metadata)
-    #os.chdir(sra_id)
+    # os.chdir(sra_id)
     to_ret = []
-    for run_acc in metadata.loc[:,"run_accession"]:
+    for run_acc in metadata.loc[:, "run_accession"]:
         print(run_acc)
         to_ret.append(str(run_acc))
     return to_ret
+
 
 def qualityControl():
     cwd = os.getcwd()
@@ -636,7 +672,7 @@ def qualityControl():
     os.system("fastqc -t {} -o qcReports/ *.fastq".format(12))
     os.chdir("qcReports")
     os.system("multiqc .")
-    os.chdir('..')
+    os.chdir("..")
     # send(multiqc_report.html)     IMPLEMENT THIS
 
 
@@ -647,27 +683,34 @@ def createCountMatrix(pathToGTF, bamInputFile):
 
     Reference - http://genomespot.blogspot.com/2015/01/generate-rna-seq-count-matrix-with.html
     """
+    bam_list = ""
+    for i in bamInputFile:
+        bam_list += i
+        bam_list += " "
+
     os.system(
-        "featureCounts -Q 10 -T {} -a {} -o countMatrix.txt {}.bam".format(
-            12, pathToGTF, bamInputFile
+        "featureCounts -Q 10 -T {} -a {} -o countMatrix {}".format(
+            12, pathToGTF, bam_list
         )
     )
 
 
 def initial_step(geo_id):
     Entrez.email = "bhavay18384@iiitd.ac.in"
-    print("Process ID: {}".format(os.getpid()))
+    writeMessage("Process ID: {}".format(os.getpid()))
     refgenome = ""
     search_id = geo_id
     print("Input GEOID is", search_id)
-    writeMessage(search_id,"Input GEOID is {}".format(search_id))
+    writeMessage(search_id, "Input GEOID is {}".format(search_id))
     handle = Entrez.esearch(db="gds", term=search_id)
     pp = handle.read()
     tree = ET.fromstring(pp)
-    writeMessage(search_id,"Selecting the following ID")
+    writeMessage(search_id, "Selecting the following ID")
     id = idselector(tree)
-    writeMessage(search_id,str(id))
+    writeMessage(search_id, str(id))
     handle = Entrez.esummary(db="gds", id=id)
+    pp = handle.read()
+    tree = ET.fromstring(pp)
     targetsra = ""
     for item in tree.findall("DocSum"):
         for item2 in item.findall("Item"):
@@ -679,18 +722,15 @@ def initial_step(geo_id):
                         for item4 in item3.findall("Item"):
                             if item4.attrib["Name"] == "TargetObject":
                                 targetsra = item4.text
-    print("SRA in relation is ", targetsra) 
-    writeMessage(search_id,"SRA in relation is {}".format(targetsra))
+    print("SRA in relation is ", targetsra)
+    writeMessage(search_id, "SRA in relation is {}".format(targetsra))
     print("Selecting the following ID")
-    writeMessage(search_id,"Selecting the following ID")
-    id = idselector(tree)
-    writeMessage(search_id,str(id))
+    writeMessage(search_id, "Selecting the following ID")
+    writeMessage(search_id, str(id))
     print("Organism is", refgenome)
     # os.system("find . -name " + targetsra + "> downloadPath.txt")
     # downloadFileLocation = open("downloadPath.txt", "r").readline()
     return (targetsra, refgenome)
-
-
 
 
 if __name__ == "__main__":
@@ -698,26 +738,40 @@ if __name__ == "__main__":
     toTrim = None
     torRNA = None
     geo_id = None
-    argumentList = sys.argv[1:] 
-    options = "b:t:r:g:"
-    try: 
-        arguments, values = getopt.getopt(argumentList, options) 
-        for currentArgument, currentValue in arguments:   
-            if currentArgument in ("-b"): 
-                print(currentArgument, currentValue) 
-                bkp = currentValue
-            elif currentArgument in ("-t"): 
-                print(currentArgument, currentValue) 
+    min_qual = None
+    len_window = None
+    min_read_len = None
+    argumentList = sys.argv[1:]
+    options = "b:t:r:g:q:w:l"
+    try:
+        arguments, values = getopt.getopt(argumentList, options)
+        for currentArgument, currentValue in arguments:
+            if currentArgument in ("-b"):
+                print(currentArgument, currentValue)
+                bkp = int(currentValue)
+            elif currentArgument in ("-t"):
+                print(currentArgument, currentValue)
                 toTrim = currentValue
-            elif currentArgument in ("-r"): 
-                print(currentArgument, currentValue) 
+            elif currentArgument in ("-r"):
+                print(currentArgument, currentValue)
                 torRNA = currentValue
-            elif currentArgument in ("-g"): 
-                print(currentArgument, currentValue) 
-                geo_id = currentValue                 
+            elif currentArgument in ("-g"):
+                print(currentArgument, currentValue)
+                geo_id = str(currentValue)
+            elif currentArgument in ("-q"):
+                print(currentArgument, currentValue)
+                min_qual = int(currentValue)
+            elif currentArgument in ("-w"):
+                print(currentArgument, currentValue)
+                len_window = int(currentValue)
+            elif currentArgument in ("-l"):
+                print(currentArgument, currentValue)
+                min_read_len = int(currentValue)
     except getopt.error as err:
-        print(str(err)) 
-    
+        print(str(err))
+
+    os.system("mkdir {}".format(geo_id))
+    os.chdir(geo_id)
     sra_id, org_name = initial_step(geo_id)
     forward_reads = []
     reverse_reads = []
@@ -725,56 +779,86 @@ if __name__ == "__main__":
     ht2_idx_url = "ftp://ftp.ccb.jhu.edu/pub/infphilo/hisat2/data"
     htmlFile = getHTML(geo_id)
     genomeBuild = findGenomeBuild(htmlFile)
-    print("genome_build {}".format(genomeBuild))
+    print("SRP, ORG Name, build")
+    print(sra_id)
+    print(org_name)
+    print(genomeBuild)
 
-    if(bkp==1):
+    if bkp == 1:
         downloadOnlySRA(db, sra_id)
-    elif(bkp==2):
+    elif bkp == 2:
         download_fq_file(db, sra_id)
         srr_ids = getAllSRRIds(db, sra_id)
-        forward_reads,reverse_reads = createFastqFiles(srr_ids)
-        if(toTrim!=None or torRNA!=None):
-            forward_reads,reverse_reads = preprocess(forward_reads, reverse_reads, torRNA, toTrim, None) # Add sortmerna db
-    elif(bkp==3):
+        forward_reads, reverse_reads = createFastqFiles(srr_ids)
+        if toTrim != None or torRNA != None:
+            forward_reads, reverse_reads = preprocess(
+                forward_reads, reverse_reads, torRNA, toTrim, None, min_qual, min_read_len, len_window
+            )  # Add sortmerna db
+        qualityControl()
+    elif bkp == 3:
         download_fq_file(db, sra_id)
         srr_ids = getAllSRRIds(db, sra_id)
-        forward_reads,reverse_reads = createFastqFiles(srr_ids)
-        if(toTrim!=None or torRNA!=None):
-            forward_reads,reverse_reads = preprocess(forward_reads, reverse_reads, torRNA, toTrim, None)
-        gtfName, fnaName = downloadRefGenome(geo_id, org_name)
-    elif(bkp==4):
+        forward_reads, reverse_reads = createFastqFiles(srr_ids)
+        if toTrim != None or torRNA != None:
+            forward_reads, reverse_reads = preprocess(
+                forward_reads, reverse_reads, torRNA, toTrim, None, min_qual, min_read_len, len_window
+            )
+        gtfName, fnaName = check_pre_built(
+            genomeBuild, ht2_idx_url, org_name, False
+        )  # downloadRefGenome(genomeBuild, org_name)
+        qualityControl()
+    elif bkp == 4:
         download_fq_file(db, sra_id)
         srr_ids = getAllSRRIds(db, sra_id)
-        forward_reads,reverse_reads = createFastqFiles(srr_ids)
-        if(toTrim!=None or torRNA!=None):
-            forward_reads,reverse_reads = preprocess(forward_reads, reverse_reads, torRNA, toTrim, None)
-        check_pre_built(genomeBuild)
-    elif(bkp==5):
+        forward_reads, reverse_reads = createFastqFiles(srr_ids)
+        if toTrim != None or torRNA != None:
+            forward_reads, reverse_reads = preprocess(
+                forward_reads, reverse_reads, torRNA, toTrim, None, min_qual, min_read_len, len_window
+            )
+        check_pre_built(genomeBuild, ht2_idx_url, org_name, True)
+        qualityControl()
+    elif bkp == 5:
         download_fq_file(db, sra_id)
         srr_ids = getAllSRRIds(db, sra_id)
-        forward_reads,reverse_reads = createFastqFiles(srr_ids)
-        if(toTrim!=None or torRNA!=None):
-            forward_reads,reverse_reads = preprocess(forward_reads, reverse_reads, torRNA, toTrim, None)
-        check_pre_built(genomeBuild)
+        forward_reads, reverse_reads = createFastqFiles(srr_ids)
+        if toTrim != None or torRNA != None:
+            forward_reads, reverse_reads = preprocess(
+                forward_reads, reverse_reads, torRNA, toTrim, None, min_qual, min_read_len, len_window
+            )
+        check_pre_built(genomeBuild, ht2_idx_url, org_name, True)
         startAlignment("ht2idxes", forward_reads, reverse_reads)
-    elif(bkp==6):
+        qualityControl()
+    elif bkp == 6:
         download_fq_file(db, sra_id)
         srr_ids = getAllSRRIds(db, sra_id)
-        forward_reads,reverse_reads = createFastqFiles(srr_ids)
-        if(toTrim!=None or torRNA!=None):
-            forward_reads,reverse_reads = preprocess(forward_reads, reverse_reads, torRNA, toTrim, None)
-        check_pre_built(genomeBuild)
+        forward_reads, reverse_reads = createFastqFiles(srr_ids)
+        if toTrim != None or torRNA != None:
+            forward_reads, reverse_reads = preprocess(
+                forward_reads, reverse_reads, torRNA, toTrim, None, min_qual, min_read_len, len_window
+            )
+        check_pre_built(genomeBuild, ht2_idx_url, org_name, True)
         output_sams = startAlignment("ht2idxes", forward_reads, reverse_reads)
         output_bams = convertSamToBam(output_sams)
         sorted_bams = sortBamFiles()
-    elif(bkp==7):
-        download_fq_file(db, sra_id)
-        srr_ids = getAllSRRIds(db, sra_id)
-        forward_reads,reverse_reads = createFastqFiles(srr_ids)
-        if(toTrim!=None or torRNA!=None):
-            forward_reads,reverse_reads = preprocess(forward_reads, reverse_reads, torRNA, toTrim, None)
-        ref, annot = check_pre_built(genomeBuild)
-        output_sams = startAlignment("ht2idxes", forward_reads, reverse_reads)
-        output_bams = convertSamToBam(output_sams)
-        sorted_bams = sortBamFiles()
-        createCountMatrix(annot, sorted_bams)
+        qualityControl()
+    elif bkp == 7:
+        # download_fq_file(db, sra_id)
+        # srr_ids = getAllSRRIds(db, sra_id)
+        # forward_reads, reverse_reads = createFastqFiles(srr_ids)
+        # if toTrim != None or torRNA != None:
+        #    forward_reads, reverse_reads = preprocess(
+        #        forward_reads, reverse_reads, torRNA, toTrim, None
+        #    )
+        # ref, annot = check_pre_built(genomeBuild, ht2_idx_url, org_name)
+        # output_sams = startAlignment("ht2idxes", forward_reads, reverse_reads)
+        sorted_bams = [
+            "output_SRR278173.sorted.bam",
+            "output_SRR278174.sorted.bam",
+            "output_SRR278175.sorted.bam",
+            "output_SRR278176.sorted.bam",
+            "output_SRR278177.sorted.bam",
+            "output_SRR278178.sorted.bam",
+        ]
+        # output_bams = convertSamToBam(output_sams)
+        # sorted_bams = sortBamFiles(output_bams)
+        createCountMatrix("GCF_000001405.25_GRCh37.p13_annotations.gtf.gz", sorted_bams)
