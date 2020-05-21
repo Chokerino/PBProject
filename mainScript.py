@@ -19,7 +19,12 @@ import glob
 
 # This function have been moved up
 
-home_path = os.environ["HOME"]
+home_path = "/home/saad18409"
+fasterq_path = "/home/saad18409/sratoolkit.2.10.5-ubuntu64/bin"
+hisat2_path = "/home/saad18409/hisat2-2.1.0"
+samtools_path = "/home/saad18409/bin"
+counts_path = "/home/saad18409/subread-2.0.1-Linux-x86_64/bin"
+fastqc_path = "/home/saad/FastQC"
 
 
 def idselector(tree):
@@ -244,8 +249,11 @@ def download_pre_built_idx(ht2_idx_url, genomeBuild):
         if return_val == 0:
             os.system("tar -xf {}.tar.gz".format(genomeBuild))
             os.chdir(genomeBuild)
+            os.system("mv * ../")
             to_ret_path = os.getcwd()
             os.chdir("..")
+            for i in range(1,9):
+                os.system("mv genome.{}.ht2 ht2idxes.{}.ht2".format(i, i))
             return to_ret_path, annotationFileName, genomeBuild.lower()
         else:
             return -1, annotationFileName, genomeBuild.lower()
@@ -435,7 +443,7 @@ def download_fq_file(db, sra_id):
     for run_acc in metadata.loc[:, "run_accession"]:
         print(run_acc)
         return_value = os.system(
-            "fasterq-dump {} -p -t $HOME/temp_files".format(str(run_acc))
+            "{}/fasterq-dump {} -p -t /home/saad18409/temp_files".format(fasterq_path, str(run_acc))
         )
         print(return_value)
 
@@ -528,7 +536,7 @@ def downloadOnlySRA(db, sra_id):
     # os.chdir(sra_id)
     for run_acc in metadata.loc[:, "run_accession"]:
         print(run_acc)
-        return_value = os.system("prefetch -p -O . {}".format(str(run_acc)))
+        return_value = os.system("{}/prefetch -p -O . {}".format(fasterq_path, str(run_acc)))
         print(return_value)
 
 
@@ -556,7 +564,7 @@ def trimmingBadReads(
         secondNameTrimmed = []
         for i in range(len(firstName)):
             os.system(
-                "java -jar {}/trimmomatic-0.39.jar {} {}/{}.fastq {}/trimmedRead{}.fastq {} {}".format(
+                "java -jar {}/trimmomatic-0.39.jar {} {}/{} {}/trimmedRead{}.fastq {} {}".format(
                     trim_home,
                     attribute,
                     os.getcwd(),
@@ -576,11 +584,11 @@ def trimmingBadReads(
             fwd_input = os.getcwd() + "/" + firstName[i]
             rev_input = os.getcwd() + "/" + secondName[i]
             output_forward_paired = os.getcwd() + "/trimmedRead" + firstName[i]
-            output_forward_unpaired = os.getcwd() + "/" + "removethis_1.fastq"
+            output_forward_unpaired = os.getcwd() + "/" + "removethis_1"
             output_reverse_paired = os.getcwd() + "/trimmedRead" + secondName[i]
-            output_reverse_unpaired = os.getcwd() + "/" + "removethis_2.fastq"
+            output_reverse_unpaired = os.getcwd() + "/" + "removethis_2"
             os.system(
-                "java -jar {}/trimmomatic-0.39.jar {} {}.fastq {}.fastq {}.fastq {}.fastq {}.fastq {}.fastq {} {}".format(
+                "java -jar {}/trimmomatic-0.39.jar {} {} {} {}.fastq {}.fastq {}.fastq {}.fastq {} {}".format(
                     trim_home,
                     attribute,
                     fwd_input,
@@ -604,7 +612,7 @@ def build_index(refGenome):
         Builds indexes using hisat2-build executable
         refGenome = takes the path to reference genome file
     """
-    command = "hisat2-build -p {} {} {}".format(12, refGenome, "ht2idxes")
+    command = "{}/hisat2-build -p {} {} {}".format(hisat2_path, 12, refGenome, "ht2idxes")
     ret_val = os.system(command)
     return ret_val
 
@@ -616,19 +624,19 @@ def startAlignment(
     os.system("touch alignmentSummary")
     if len(secondFilesNameList) == 0:
         for i in range(len(firstFileNamesList)):
-            command = "hisat2 --summary-file alignmentSummary -x {} -p {} -U {} -S output_{}.sam".format(
-                indexLocation, 12, firstFileNamesList[i], firstFileNamesList[i][:-6],
+            command = "{}/hisat2 --summary-file alignmentSummary -x {} -p {} -U {} -S output_{}.sam".format(
+                hisat2_path, indexLocation, 12, firstFileNamesList[i], firstFileNamesList[i][:-6],
             )
             os.system(command)
-            outputName = "output_{}.sam".format(i + 1)
+            outputName = "output_{}.sam".format(firstFileNamesList[i][:-6])
             outputFilenames.append(outputFilenames)
     else:
         for i in range(len(firstFileNamesList)):
-            command = "hisat2 --summary-file alignmentSummary -x {} -p {} -1 {} -2 {} -S output_{}.sam".format(
-                indexLocation, 12, firstFileNamesList[i], secondFilesNameList[i], i + 1,
+            command = "{}/hisat2 --summary-file alignmentSummary -x {} -p {} -1 {} -2 {} -S output_{}.sam".format(
+                hisat2_path, indexLocation, 12, firstFileNamesList[i], secondFilesNameList[i], firstFileNamesList[i][:-6],
             )
             os.system(command)
-            outputName = "output_{}.sam".format(i + 1)
+            outputName = "output_{}.sam".format(firstFileNamesList[i][:-6])
             outputFilenames.append(outputFilenames)
     return outputFilenames
 
@@ -636,8 +644,8 @@ def startAlignment(
 def convertSamToBam(samFilenames):
     bamFileNames = []
     for i in range(len(samFilenames)):
-        command = "samtools view -S -b {} > {}".format(
-            samFilenames[i], samFilenames[i][0:-3] + "bam"
+        command = "{}/samtools view -S -b {} > {}".format(
+            samtools_path, samFilenames[i], samFilenames[i][0:-3] + "bam"
         )
         os.system(command)
         bamFileNames.append(samFilenames[i][0:-3] + "bam")
@@ -647,8 +655,8 @@ def convertSamToBam(samFilenames):
 def sortBamFiles(BamfileNames: list):
     sortedBamFileNames = []
     for i in range(len(BamfileNames)):
-        command = "samtools sort {} -o {}".format(
-            BamfileNames[i], BamfileNames[i][0:-3] + "sorted.bam"
+        command = "{}/samtools sort {} -o {}".format(
+            samtools_path ,BamfileNames[i], BamfileNames[i][0:-3] + "sorted.bam"
         )
         os.system(command)
         sortedBamFileNames.append(BamfileNames[i][0:-3] + "sorted.bam")
@@ -669,7 +677,7 @@ def getAllSRRIds(db, sra_id):
 def qualityControl():
     cwd = os.getcwd()
     os.system("mkdir qcReports")
-    os.system("fastqc -t {} -o qcReports/ *.fastq".format(12))
+    os.system("{}/fastqc -t {} -o qcReports/ *.fastq".format(fastqc_path,12))
     os.chdir("qcReports")
     os.system("multiqc .")
     os.chdir("..")
@@ -689,8 +697,8 @@ def createCountMatrix(pathToGTF, bamInputFile):
         bam_list += " "
 
     os.system(
-        "featureCounts -Q 10 -T {} -a {} -o countMatrix {}".format(
-            12, pathToGTF, bam_list
+        "{}/featureCounts -Q 10 -T {} -a {} -o countMatrix {}".format(
+            counts_path, 12, pathToGTF, bam_list
         )
     )
 
@@ -701,13 +709,13 @@ def initial_step(geo_id):
     refgenome = ""
     search_id = geo_id
     print("Input GEOID is", search_id)
-    writeMessage(search_id, "Input GEOID is {}".format(search_id))
+    writeMessage("Input GEOID is {}".format(search_id))
     handle = Entrez.esearch(db="gds", term=search_id)
     pp = handle.read()
     tree = ET.fromstring(pp)
-    writeMessage(search_id, "Selecting the following ID")
+    writeMessage("Selecting the following ID")
     id = idselector(tree)
-    writeMessage(search_id, str(id))
+    writeMessage(str(id))
     handle = Entrez.esummary(db="gds", id=id)
     pp = handle.read()
     tree = ET.fromstring(pp)
@@ -723,10 +731,10 @@ def initial_step(geo_id):
                             if item4.attrib["Name"] == "TargetObject":
                                 targetsra = item4.text
     print("SRA in relation is ", targetsra)
-    writeMessage(search_id, "SRA in relation is {}".format(targetsra))
+    writeMessage("SRA in relation is {}".format(targetsra))
     print("Selecting the following ID")
-    writeMessage(search_id, "Selecting the following ID")
-    writeMessage(search_id, str(id))
+    writeMessage("Selecting the following ID")
+    writeMessage(str(id))
     print("Organism is", refgenome)
     # os.system("find . -name " + targetsra + "> downloadPath.txt")
     # downloadFileLocation = open("downloadPath.txt", "r").readline()
@@ -843,14 +851,22 @@ if __name__ == "__main__":
         qualityControl()
     elif bkp == 7:
         download_fq_file(db, sra_id)
+        writeMessage("fq done")
         srr_ids = getAllSRRIds(db, sra_id)
         forward_reads, reverse_reads = createFastqFiles(srr_ids)
+        writeMessage("forward rev done")
         if toTrim != None or torRNA != None:
            forward_reads, reverse_reads = preprocess(
                forward_reads, reverse_reads, torRNA, toTrim, None, min_qual, min_read_len, len_window
            )
+        writeMessage("Index Start")
         ref, annot = check_pre_built(genomeBuild, ht2_idx_url, org_name, True)
+        writeMessage("Index done")
         output_sams = startAlignment("ht2idxes", forward_reads, reverse_reads)
+        writeMessage("Alignment done")
         output_bams = convertSamToBam(output_sams)
+        writeMessage("bams done")
         sorted_bams = sortBamFiles(output_bams)
+        writeMessage("bams sorted")
         createCountMatrix(annot, sorted_bams)
+        writeMessage("count matrix done")
