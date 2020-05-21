@@ -198,7 +198,7 @@ def get_ens_annotations(genomeBuild):
         return True, "hisat2_annotation.gtf.gz"
 
 
-def check_pre_built(genomeBuild, ht2_idx_url, org_name, to_build):
+def check_pre_built(genomeBuild, ht2_idx_url, org_name, to_build=True):
     """
         Main function which calls all the other download and build functions
         first check if genome build exists
@@ -842,23 +842,15 @@ if __name__ == "__main__":
         sorted_bams = sortBamFiles()
         qualityControl()
     elif bkp == 7:
-        # download_fq_file(db, sra_id)
-        # srr_ids = getAllSRRIds(db, sra_id)
-        # forward_reads, reverse_reads = createFastqFiles(srr_ids)
-        # if toTrim != None or torRNA != None:
-        #    forward_reads, reverse_reads = preprocess(
-        #        forward_reads, reverse_reads, torRNA, toTrim, None
-        #    )
-        # ref, annot = check_pre_built(genomeBuild, ht2_idx_url, org_name)
-        # output_sams = startAlignment("ht2idxes", forward_reads, reverse_reads)
-        sorted_bams = [
-            "output_SRR278173.sorted.bam",
-            "output_SRR278174.sorted.bam",
-            "output_SRR278175.sorted.bam",
-            "output_SRR278176.sorted.bam",
-            "output_SRR278177.sorted.bam",
-            "output_SRR278178.sorted.bam",
-        ]
-        # output_bams = convertSamToBam(output_sams)
-        # sorted_bams = sortBamFiles(output_bams)
-        createCountMatrix("GCF_000001405.25_GRCh37.p13_annotations.gtf.gz", sorted_bams)
+        download_fq_file(db, sra_id)
+        srr_ids = getAllSRRIds(db, sra_id)
+        forward_reads, reverse_reads = createFastqFiles(srr_ids)
+        if toTrim != None or torRNA != None:
+           forward_reads, reverse_reads = preprocess(
+               forward_reads, reverse_reads, torRNA, toTrim, None, min_qual, min_read_len, len_window
+           )
+        ref, annot = check_pre_built(genomeBuild, ht2_idx_url, org_name, True)
+        output_sams = startAlignment("ht2idxes", forward_reads, reverse_reads)
+        output_bams = convertSamToBam(output_sams)
+        sorted_bams = sortBamFiles(output_bams)
+        createCountMatrix(annot, sorted_bams)
